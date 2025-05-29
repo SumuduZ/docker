@@ -1,41 +1,40 @@
-# Base image
+# 使用 Debian 作为基础镜像
 FROM debian:11.0
 
-# Install system dependencies
+# 设置 shell 为 bash，确保 conda init 生效
+SHELL ["/bin/bash", "-c"]
+
+# 安装系统依赖
 RUN apt-get update --fix-missing && apt-get install -y \
     wget bzip2 ca-certificates \
     libglib2.0-0 libxext6 libsm6 libxrender1 \
     git mercurial subversion \
-    curl grep sed dpkg tini
-
-# Install Anaconda
-RUN echo 'export PATH=/opt/conda/bin:$PATH' > /etc/profile.d/conda.sh && \
-    wget --quiet https://repo.continuum.io/archive/Anaconda3-2022.05-Linux-x86_64.sh && \
-    /bin/bash /Anaconda3-2022.05-Linux-x86_64.sh -b -p /opt/conda && \
-    rm /Anaconda3-2022.05-Linux-x86_64.sh
-
-ENV PATH /opt/conda/bin:$PATH
-
-# Install other requirements
-RUN apt-get update && apt-get install -y --fix-missing \
+    curl grep sed dpkg tini \
     r-base mono-runtime libgomp1 libc6
 
-# Fix for 'xgboost' missing
-RUN conda install libgcc
+# 安装 Anaconda
+RUN wget --quiet https://repo.continuum.io/archive/Anaconda3-2022.05-Linux-x86_64.sh && \
+    /bin/bash Anaconda3-2022.05-Linux-x86_64.sh -b -p /opt/conda && \
+    rm Anaconda3-2022.05-Linux-x86_64.sh
 
-# Copy the conda environment file into the image
+# 设置 Conda 路径并初始化 shell
+ENV PATH="/opt/conda/bin:$PATH"
+RUN conda init bash
+
+# 拷贝 Conda 环境文件
 COPY conda_env.yml /tmp/conda_env.yml
 
-# Create the conda environment
+# 创建 Conda 环境并配置自动激活
 RUN conda env create -f /tmp/conda_env.yml && \
+    echo "conda activate myenv" >> ~/.bashrc && \
     conda clean -a
 
-# Activate the environment by adjusting PATH
+# 默认环境和路径设置
 ENV CONDA_DEFAULT_ENV=myenv
-ENV PATH /opt/conda/envs/myenv/bin:$PATH
+ENV PATH="/opt/conda/envs/myenv/bin:$PATH"
 
-# Set working directory
+# 设置工作目录
 WORKDIR /workspace
 
-# Default command (can be overridden)
-CMD ["/bin/bash"]
+# 默认命令：启动 bash，Codabench 会执行其中命令
+CMD ["bash"]
